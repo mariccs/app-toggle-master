@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir --upgrade pip \
 FROM python:3.11-slim
 
 RUN groupadd -r app && useradd -r -g app app \
-    && apt-get update && apt-get install -y --no-install-recommends curl \
+    && apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
