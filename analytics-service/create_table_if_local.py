@@ -12,10 +12,16 @@ ENDPOINT_URL = os.getenv("AWS_DYNAMODB_ENDPOINT_URL")
 if not ENDPOINT_URL:
     sys.exit(0)
 
-boto_config = Config(connect_timeout=2, read_timeout=2, retries={"max_attempts": 1})
+boto_config = Config(
+    connect_timeout=2,
+    read_timeout=2,
+    retries={
+        "max_attempts": 1})
 client = boto3.client(
-    "dynamodb", region_name=AWS_REGION, endpoint_url=ENDPOINT_URL, config=boto_config
-)
+    "dynamodb",
+    region_name=AWS_REGION,
+    endpoint_url=ENDPOINT_URL,
+    config=boto_config)
 
 MAX_ATTEMPTS = 30
 SLEEP_SECONDS = 2
@@ -28,11 +34,13 @@ for attempt in range(1, MAX_ATTEMPTS + 1):
             KeySchema=[{"AttributeName": "event_id", "KeyType": "HASH"}],
             BillingMode="PAY_PER_REQUEST",
         )
-        print(f"[create_table_if_local] Tabela '{TABLE_NAME}' criada no DynamoDB Local.")
+        print(
+            f"[create_table_if_local] Tabela '{TABLE_NAME}' criada no DynamoDB Local.")
         break
     except ClientError as e:
         if e.response["Error"]["Code"] == "ResourceInUseException":
-            print(f"[create_table_if_local] Tabela '{TABLE_NAME}' já existe. Ok.")
+            print(
+                f"[create_table_if_local] Tabela '{TABLE_NAME}' já existe. Ok.")
             break
         print(f"[create_table_if_local] Erro ao criar tabela: {e}")
         break
@@ -48,4 +56,3 @@ else:
         f"[create_table_if_local] Desisti após {MAX_ATTEMPTS} tentativas. "
         "Seguindo em frente mesmo assim — o worker tentará gravar em runtime."
     )
-

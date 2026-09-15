@@ -117,7 +117,7 @@ jobs:
         name: SAST - gosec
         uses: securego/gosec@v2.28.0
         with:
-          args: -severity high -confidence high ./...
+          args: -severity high -confidence high ./${{ inputs.working_directory }}/...
 
       - if: inputs.language == 'python'
         name: SAST - bandit
