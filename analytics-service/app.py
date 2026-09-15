@@ -11,9 +11,8 @@ from flask import Flask, jsonify
 from dotenv import load_dotenv
 
 # Configura o logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 log = logging.getLogger(__name__)
 
 # Carrega .env para desenvolvimento local
@@ -81,8 +80,7 @@ def process_message(message):
         )
 
         log.info(
-            f"Evento {event_id} (Flag: {
-                body['flag_name']}) salvo no DynamoDB.")
+            f"Evento {event_id} (Flag: {body['flag_name']}) salvo no DynamoDB.")
 
         # Se tudo deu certo, deleta a mensagem da fila
         sqs_client.delete_message(
@@ -92,13 +90,11 @@ def process_message(message):
 
     except json.JSONDecodeError:
         log.error(
-            f"Erro ao decodificar JSON da mensagem ID: {
-                message['MessageId']}")
+            f"Erro ao decodificar JSON da mensagem ID: {message['MessageId']}")
         # Não deleta a mensagem, pode ser uma "poison pill"
     except ClientError as e:
         log.error(
-            f"Erro do Boto3 (DynamoDB ou SQS) ao processar {
-                message['MessageId']}: {e}")
+            f"Erro do Boto3 (DynamoDB ou SQS) ao processar {message['MessageId']}: {e}")
         # Não deleta a mensagem, tenta novamente
     except Exception as e:
         log.error(f"Erro inesperado ao processar {message['MessageId']}: {e}")

@@ -49,26 +49,22 @@ def require_auth(f):
         try:
             # Chama o /validate do auth-service
             validate_url = f"{AUTH_SERVICE_URL}/validate"
-            response = requests.get(
-                validate_url, headers={
-                    "Authorization": auth_header}, timeout=3)
+            response = requests.get(validate_url, headers={
+                                    "Authorization": auth_header}, timeout=3)
 
             if response.status_code != 200:
                 log.warning(
-                    f"Falha na validação da chave (status: {
-                        response.status_code})")
+                    f"Falha na validação da chave (status: {response.status_code})")
                 return jsonify({"error": "Chave de API inválida"}), 401
 
         except requests.exceptions.Timeout:
             log.error("Timeout ao conectar com o auth-service")
             # Gateway Timeout
-            return jsonify(
-                {"error": "Serviço de autenticação indisponível (timeout)"}), 504
+            return jsonify({"error": "Serviço de autenticação indisponível (timeout)"}), 504
         except requests.exceptions.RequestException as e:
             log.error(f"Erro ao conectar com o auth-service: {e}")
             # Service Unavailable
-            return jsonify(
-                {"error": "Serviço de autenticação indisponível"}), 503
+            return jsonify({"error": "Serviço de autenticação indisponível"}), 503
 
         # Se a chave for válida, continua para a rota
         return f(*args, **kwargs)
@@ -117,8 +113,7 @@ def create_flag():
         if conn:
             conn.rollback()
         log.error(f"Erro ao criar flag: {e}")
-        return jsonify(
-            {"error": "Erro interno do servidor", "details": str(e)}), 500
+        return jsonify({"error": "Erro interno do servidor", "details": str(e)}), 500
     finally:
         if cur:
             cur.close()
@@ -140,8 +135,7 @@ def get_flags():
         return jsonify(flags)
     except Exception as e:
         log.error(f"Erro ao buscar flags: {e}")
-        return jsonify(
-            {"error": "Erro interno do servidor", "details": str(e)}), 500
+        return jsonify({"error": "Erro interno do servidor", "details": str(e)}), 500
     finally:
         if cur:
             cur.close()
@@ -165,8 +159,7 @@ def get_flag(name):
         return jsonify(flag)
     except Exception as e:
         log.error(f"Erro ao buscar flag '{name}': {e}")
-        return jsonify(
-            {"error": "Erro interno do servidor", "details": str(e)}), 500
+        return jsonify({"error": "Erro interno do servidor", "details": str(e)}), 500
     finally:
         if cur:
             cur.close()
@@ -194,8 +187,7 @@ def update_flag(name):
         values.append(data['is_enabled'])
 
     if not fields:
-        return jsonify(
-            {"error": "Pelo menos um campo ('description', 'is_enabled') é obrigatório"}), 400
+        return jsonify({"error": "Pelo menos um campo ('description', 'is_enabled') é obrigatório"}), 400
 
     values.append(name)  # Adiciona o 'name' para a cláusula WHERE
 
@@ -219,8 +211,7 @@ def update_flag(name):
         if conn:
             conn.rollback()
         log.error(f"Erro ao atualizar flag '{name}': {e}")
-        return jsonify(
-            {"error": "Erro interno do servidor", "details": str(e)}), 500
+        return jsonify({"error": "Erro interno do servidor", "details": str(e)}), 500
     finally:
         if cur:
             cur.close()
@@ -249,8 +240,7 @@ def delete_flag(name):
         if conn:
             conn.rollback()
         log.error(f"Erro ao deletar flag '{name}': {e}")
-        return jsonify(
-            {"error": "Erro interno do servidor", "details": str(e)}), 500
+        return jsonify({"error": "Erro interno do servidor", "details": str(e)}), 500
     finally:
         if cur:
             cur.close()

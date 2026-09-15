@@ -12,16 +12,11 @@ ENDPOINT_URL = os.getenv("AWS_DYNAMODB_ENDPOINT_URL")
 if not ENDPOINT_URL:
     sys.exit(0)
 
-boto_config = Config(
-    connect_timeout=2,
-    read_timeout=2,
-    retries={
-        "max_attempts": 1})
+boto_config = Config(connect_timeout=2, read_timeout=2,
+                     retries={"max_attempts": 1})
 client = boto3.client(
-    "dynamodb",
-    region_name=AWS_REGION,
-    endpoint_url=ENDPOINT_URL,
-    config=boto_config)
+    "dynamodb", region_name=AWS_REGION, endpoint_url=ENDPOINT_URL, config=boto_config
+)
 
 MAX_ATTEMPTS = 30
 SLEEP_SECONDS = 2
@@ -30,7 +25,8 @@ for attempt in range(1, MAX_ATTEMPTS + 1):
     try:
         client.create_table(
             TableName=TABLE_NAME,
-            AttributeDefinitions=[{"AttributeName": "event_id", "AttributeType": "S"}],
+            AttributeDefinitions=[
+                {"AttributeName": "event_id", "AttributeType": "S"}],
             KeySchema=[{"AttributeName": "event_id", "KeyType": "HASH"}],
             BillingMode="PAY_PER_REQUEST",
         )

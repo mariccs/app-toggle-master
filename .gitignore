@@ -1,5 +1,9 @@
+# Docs internos (roteiros de vídeo, relatório de entrega, anotações de
+# preparo) - não fazem parte do código do projeto e não devem ir pro
+# repositório público.
 docs/
 
+# Terraform
 **/.terraform/
 **/.terraform.lock.hcl
 **/terraform.tfstate
@@ -9,16 +13,22 @@ docs/
 **/*.tfplan
 **/crash.log
 
+# Variáveis de ambiente com segredos reais (só os .env.example ficam)
 **/.env
 
+# Credenciais / chaves que nunca deveriam ser commitadas por acidente
 *.pem
 *.key
 *id_rsa*
 *.p12
+
+# Go
 **/*.exe
 
+# Python
 **/__pycache__/
 **/*.pyc
 .venv/
 
+# OS
 .DS_Store
