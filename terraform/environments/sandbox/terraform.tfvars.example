@@ -1,0 +1,38 @@
+# Obrigatória — não tem default em variables.tf.
+github_org_repo = ""
+
+# Tudo abaixo é opcional: já tem um valor default em variables.tf.
+# Descomente e ajuste só o que quiser sobrescrever.
+
+# aws_region                 = ""
+# project_name               = ""
+# environment                = ""
+
+# vpc_cidr                   = ""
+# azs                        = []
+# public_subnet_cidrs        = []
+# private_subnet_cidrs       = []
+# single_nat_gateway         = true
+
+# kubernetes_version         = ""
+# node_instance_types        = []
+# node_min_size              = 0
+# node_desired_size          = 0
+# node_max_size              = 0
+
+# db_instance_class          = ""
+# db_engine_version          = ""
+# db_allocated_storage       = 0
+# db_username                = ""
+# db_password                = ""
+# db_multi_az                = false
+# db_backup_retention_period = 0
+
+# redis_node_type            = ""
+# redis_engine_version       = ""
+
+# dynamodb_table_name        = ""
+# sqs_queue_name             = ""
+# ecr_repository_names       = []
+
+# install_argocd             = true

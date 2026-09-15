@@ -1,0 +1,28 @@
+name: auth-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "auth-service/**"
+      - ".github/workflows/auth-service.yml"
+      - ".github/workflows/_reusable-ci-cd.yml"
+  pull_request:
+    paths:
+      - "auth-service/**"
+      - ".github/workflows/auth-service.yml"
+      - ".github/workflows/_reusable-ci-cd.yml"
+
+jobs:
+  ci-cd:
+    uses: ./.github/workflows/_reusable-ci-cd.yml
+    with:
+      service_name: auth-service
+      language: go
+      working_directory: auth-service
+    secrets:
+      AWS_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      GITOPS_REPO_TOKEN: ${{ secrets.GITOPS_REPO_TOKEN }}
+      GITOPS_REPO: ${{ secrets.GITOPS_REPO }}

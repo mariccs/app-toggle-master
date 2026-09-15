@@ -1,0 +1,174 @@
+name: togglemaster
+
+networks:
+  togglemaster-net:
+    driver: bridge
+
+volumes:
+  auth-db-data:
+  shared-db-data:
+  redis-data:
+  dynamodb-data:
+
+services:
+  auth-db:
+    image: postgres:15-alpine
+    container_name: togglemaster-auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth_db
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+      - ./compose/init/auth-db:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d auth_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [togglemaster-net]
+
+  shared-db:
+    image: postgres:15-alpine
+    container_name: togglemaster-shared-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: flags_db
+    volumes:
+      - shared-db-data:/var/lib/postgresql/data
+      - ./compose/init/shared-db:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d flags_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [togglemaster-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: togglemaster-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [togglemaster-net]
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: togglemaster-dynamodb-local
+    restart: unless-stopped
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "./data"]
+    working_dir: /home/dynamodblocal
+    volumes:
+      - dynamodb-data:/home/dynamodblocal/data
+    ports:
+      - "8000:8000"
+    networks: [togglemaster-net]
+
+  auth-service:
+    build:
+      context: ./auth-service
+    container_name: togglemaster-auth-service
+    restart: unless-stopped
+    env_file:
+      - ./auth-service/.env.example
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@auth-db:5432/auth_db?sslmode=disable"
+    ports:
+      - "8001:8001"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks: [togglemaster-net]
+
+  flag-service:
+    build:
+      context: ./flag-service
+    container_name: togglemaster-flag-service
+    restart: unless-stopped
+    env_file:
+      - ./flag-service/.env.example
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@shared-db:5432/flags_db?sslmode=disable"
+      AUTH_SERVICE_URL: "http://auth-service:8001"
+    ports:
+      - "8002:8002"
+    depends_on:
+      shared-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks: [togglemaster-net]
+
+  targeting-service:
+    build:
+      context: ./targeting-service
+    container_name: togglemaster-targeting-service
+    restart: unless-stopped
+    env_file:
+      - ./targeting-service/.env.example
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@shared-db:5432/targeting_db?sslmode=disable"
+      AUTH_SERVICE_URL: "http://auth-service:8001"
+    ports:
+      - "8003:8003"
+    depends_on:
+      shared-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks: [togglemaster-net]
+
+  evaluation-service:
+    build:
+      context: ./evaluation-service
+    container_name: togglemaster-evaluation-service
+    restart: unless-stopped
+    env_file:
+      - ./evaluation-service/.env.example
+    environment:
+      REDIS_URL: "redis://redis:6379"
+      FLAG_SERVICE_URL: "http://flag-service:8002"
+      TARGETING_SERVICE_URL: "http://targeting-service:8003"
+    ports:
+      - "8004:8004"
+    depends_on:
+      redis:
+        condition: service_healthy
+      flag-service:
+        condition: service_started
+      targeting-service:
+        condition: service_started
+    networks: [togglemaster-net]
+
+  analytics-service:
+    build:
+      context: ./analytics-service
+    container_name: togglemaster-analytics-service
+    restart: unless-stopped
+    env_file:
+      - ./analytics-service/.env.example
+    environment:
+      AWS_DYNAMODB_ENDPOINT_URL: "http://dynamodb-local:8000"
+      AWS_ACCESS_KEY_ID: "local"
+      AWS_SECRET_ACCESS_KEY: "local"
+    ports:
+      - "8005:8005"
+    depends_on:
+      dynamodb-local:
+        condition: service_started
+    networks: [togglemaster-net]
+
