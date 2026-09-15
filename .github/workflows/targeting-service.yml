@@ -13,6 +13,10 @@ on:
       - ".github/workflows/targeting-service.yml"
       - ".github/workflows/_reusable-ci-cd.yml"
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   ci-cd:
     uses: ./.github/workflows/_reusable-ci-cd.yml
