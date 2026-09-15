@@ -63,3 +63,4 @@ terraform/                 infraestrutura AWS, modularizada
 scripts/                   utilitários (aplicar schema no RDS, seed de dados, etc)
 docs/                       anotações sobre decisões e ajustes no código original
 ```
+
