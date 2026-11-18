@@ -67,3 +67,40 @@ resource "aws_iam_role_policy" "github_actions_permissions" {
   role   = aws_iam_role.github_actions.id
   policy = data.aws_iam_policy_document.github_actions_permissions.json
 }
+
+# --- Self-healing (Fase 4) ---
+# A workflow de self-healing (.github/workflows/self-heal.yml) assume este
+# mesmo role para rodar "aws eks update-kubeconfig" e, em seguida,
+# "kubectl rollout restart". DescribeCluster é o que update-kubeconfig
+# precisa; a permissão de fato dentro do cluster vem do Access Entry
+# abaixo (RBAC nativo do IAM no EKS, sem precisar editar o ConfigMap
+# aws-auth à mão).
+data "aws_iam_policy_document" "github_actions_eks_describe" {
+  statement {
+    effect    = "Allow"
+    actions   = ["eks:DescribeCluster"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "github_actions_eks_describe" {
+  name   = "eks-describe-cluster"
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.github_actions_eks_describe.json
+}
+
+resource "aws_eks_access_entry" "github_actions_self_heal" {
+  cluster_name  = var.eks_cluster_name
+  principal_arn = aws_iam_role.github_actions.arn
+}
+
+resource "aws_eks_access_policy_association" "github_actions_self_heal" {
+  cluster_name  = var.eks_cluster_name
+  principal_arn = aws_iam_role.github_actions.arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy"
+
+  access_scope {
+    type       = "namespace"
+    namespaces = ["togglemaster"]
+  }
+}

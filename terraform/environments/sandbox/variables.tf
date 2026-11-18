@@ -1,6 +1,6 @@
 variable "aws_region" {
   type    = string
-  default = "us-east-1"
+  default = "us-east-2"
 }
 
 variable "project_name" {
@@ -20,7 +20,7 @@ variable "vpc_cidr" {
 
 variable "azs" {
   type    = list(string)
-  default = ["us-east-1a", "us-east-1b"]
+  default = ["us-east-2a", "us-east-2b"]
 }
 
 variable "public_subnet_cidrs" {
@@ -45,7 +45,7 @@ variable "kubernetes_version" {
 
 variable "node_instance_types" {
   type    = list(string)
-  default = ["t3.small"]
+  default = ["m7i-flex.large"]
 }
 
 variable "node_min_size" {
@@ -136,6 +136,15 @@ variable "install_argocd" {
 }
 
 variable "github_org_repo" {
-  description = "No formato usuario/repositorio do seu repositório no GitHub, usado pra restringir quem pode assumir a role de CI via OIDC."
   type        = string
+}
+
+variable "github_dispatch_token" {
+  type        = string
+  sensitive   = true
+}
+
+variable "relay_shared_secret" {
+  type        = string
+  sensitive   = true
 }

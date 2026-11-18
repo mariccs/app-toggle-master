@@ -47,6 +47,39 @@ O deploy não é mais `kubectl apply` manual. Os manifestos Kubernetes vivem num
 
 Secrets continuam fora do Git nos dois casos — aplicados direto no cluster via `k8s/generate-secrets.sh`, usando os outputs do Terraform.
 
+## Observabilidade, APM e self-healing (Fase 4)
+
+Os 5 microsserviços exportam traces (e, no caso do analytics-service, os
+spans das chamadas ao SQS/DynamoDB) via OTLP para um OTel Collector que
+roda no próprio cluster (repositório de GitOps, `observability/`). O
+Collector é o roteador central de telemetria: deriva métricas RED
+automaticamente dos traces (connector `spanmetrics`, sem precisar
+instrumentar manualmente um contador por serviço) e distribui para:
+
+- **Prometheus + Grafana** (`kube-prometheus-stack`) — métricas e o
+  dashboard `ToggleMaster - Visão Geral`;
+- **Loki** — logs, via o endpoint OTLP nativo do próprio Loki;
+- **New Relic** — APM comercial desta fase (traces, métricas e logs).
+
+Um alerta no Prometheus (`AuthServiceHigh5xxRate`, taxa de 5xx do
+auth-service acima de 5% por 2 minutos) dispara, via Alertmanager, três
+coisas em paralelo: abre um incidente na **Jira Service Management**, manda uma
+notificação no **Discord** (ChatOps), e aciona o **self-healing** — um
+pequeno relay em AWS Lambda (`terraform/modules/self_healing_relay/`)
+chama a API `repository_dispatch` do GitHub, que dispara o workflow
+`.github/workflows/self-heal.yml` e executa
+`kubectl rollout restart deployment/auth-service` de verdade no cluster.
+
+Para provocar a falha de propósito (demonstração), o auth-service expõe
+`GET /auth/chaos/5xx` (via ingress) quando sobe com `CHAOS_ENDPOINT_ENABLED=true` — endpoint
+que só serve pra isso, desligado por padrão.
+
+Detalhes de arquitetura, a justificativa das escolhas (New Relic vs
+Datadog, Jira Service Management) e o passo a passo de configuração dos
+segredos estão em `docs/CHANGES.md` e no relatório de entrega da Fase 4.
+Os arquivos do Helm/ArgoCD da stack de observabilidade ficam no
+repositório `toggle-master-gitops`, pasta `observability/`.
+
 ## Estrutura do repositório
 
 ```
@@ -58,8 +91,12 @@ analytics-service/
 compose/init/             scripts de inicialização dos bancos locais
 docker-compose.yml
 k8s/                       geração de secrets (não manifestos de app - esses foram pro repo de GitOps)
-terraform/                 infraestrutura AWS, modularizada
-.github/workflows/         pipelines de CI/CD por serviço
+terraform/                 infraestrutura AWS, modularizada (inclui o relay de self-healing da Fase 4)
+.github/workflows/         pipelines de CI/CD por serviço + self-heal.yml (Fase 4)
 scripts/                   utilitários (aplicar schema no RDS, seed de dados, etc)
 docs/                       anotações sobre decisões e ajustes no código original
 ```
+
+A stack de observabilidade (Prometheus, Loki, Grafana, OTel Collector) é
+GitOps puro e não vive aqui — está em `observability/` no repositório
+`toggle-master-gitops`.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"net/http"
@@ -8,17 +9,30 @@ import (
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // App struct (para injeção de dependência)
 type App struct {
-	DB         *sql.DB
-	MasterKey  string
+	DB        *sql.DB
+	MasterKey string
+	// ChaosEnabled controla o endpoint /chaos/5xx, usado só para a
+	// demonstração da Fase 4 (provocar deliberadamente a falha que
+	// dispara o alerta de taxa de 5xx > 5%). Fica desligado por padrão.
+	ChaosEnabled bool
 }
 
 func main() {
 	// Carrega o .env para desenvolvimento local. Em produção, isso não fará nada.
 	_ = godotenv.Load()
+
+	// Inicializa o OpenTelemetry (traces) antes de tudo.
+	shutdownTracer := initTracer()
+	defer func() {
+		if err := shutdownTracer(context.Background()); err != nil {
+			log.Printf("Erro ao finalizar o tracer provider: %v", err)
+		}
+	}()
 
 	// --- Configuração ---
 	port := os.Getenv("PORT")
@@ -48,8 +62,9 @@ func main() {
 	}()
 
 	app := &App{
-		DB:         db,
-		MasterKey:  masterKey,
+		DB:           db,
+		MasterKey:    masterKey,
+		ChaosEnabled: os.Getenv("CHAOS_ENDPOINT_ENABLED") == "true",
 	}
 
 	// --- Rotas da API ---
@@ -63,8 +78,18 @@ func main() {
 	// Eles são protegidos pelo middleware de autenticação
 	mux.Handle("/admin/keys", app.masterKeyAuthMiddleware(http.HandlerFunc(app.createKeyHandler)))
 
+	// Endpoint só para a demonstração da Fase 4: provoca 500 de propósito,
+	// para disparar o alerta "AuthServiceHigh5xxRate" ao vivo no vídeo.
+	// Só existe se CHAOS_ENDPOINT_ENABLED=true (desligado por padrão).
+	mux.HandleFunc("/chaos/5xx", app.chaosHandler)
+
+	// Envolve o mux com o middleware do OpenTelemetry: toda requisição
+	// (inclusive as que o endpoint de chaos provoca) gera um span,
+	// visível no New Relic e correlacionado ao alerta no Grafana.
+	instrumentedMux := otelhttp.NewHandler(mux, "auth-service")
+
 	log.Printf("Serviço de Autenticação (Go) rodando na porta %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, instrumentedMux); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -108,4 +108,14 @@ module "github_oidc" {
   project_name         = var.project_name
   github_org_repo      = var.github_org_repo
   ecr_repository_arns  = values(module.ecr.repository_arns)
+  eks_cluster_name     = module.eks.cluster_name
+}
+
+module "self_healing_relay" {
+  source = "../../modules/self_healing_relay"
+
+  project_name          = var.project_name
+  github_org_repo       = var.github_org_repo
+  github_dispatch_token = var.github_dispatch_token
+  relay_shared_secret   = var.relay_shared_secret
 }

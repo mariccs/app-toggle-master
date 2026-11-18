@@ -19,6 +19,20 @@ type CreateKeyResponse struct {
 	Message string `json:"message"`
 }
 
+// chaosHandler existe só para a demonstração da Fase 4: permite provocar
+// deliberadamente uma falha (HTTP 500) para disparar, ao vivo, o alerta
+// "AuthServiceHigh5xxRate" (taxa de 5xx > 5%) e todo o fluxo depois dele
+// (Jira Service Management, Discord, self-healing). Só responde se
+// CHAOS_ENDPOINT_ENABLED=true; fora da demonstração, fica desligado.
+func (a *App) chaosHandler(w http.ResponseWriter, r *http.Request) {
+	if !a.ChaosEnabled {
+		http.NotFound(w, r)
+		return
+	}
+	log.Println("Endpoint /chaos/5xx chamado: provocando falha 500 de propósito (demonstração Fase 4).")
+	http.Error(w, `{"error": "falha provocada deliberadamente para a demonstração da Fase 4"}`, http.StatusInternalServerError)
+}
+
 // healthHandler é um simples endpoint de verificação de saúde
 func (a *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)

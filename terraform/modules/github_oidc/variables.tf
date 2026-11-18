@@ -10,3 +10,8 @@ variable "github_org_repo" {
 variable "ecr_repository_arns" {
   type = list(string)
 }
+
+variable "eks_cluster_name" {
+  description = "Nome do cluster EKS, usado para liberar o self-healing (rollout restart) via Access Entry."
+  type        = string
+}

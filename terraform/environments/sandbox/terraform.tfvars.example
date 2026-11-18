@@ -1,5 +1,7 @@
-# Obrigatória — não tem default em variables.tf.
-github_org_repo = ""
+# Obrigatórias — não têm default em variables.tf.
+github_org_repo       = ""
+github_dispatch_token = ""  # PAT fine-grained (Actions: Read and write) — Fase 4, self-healing
+relay_shared_secret   = ""  # ex: $(openssl rand -hex 32) — Fase 4, self-healing
 
 # Tudo abaixo é opcional: já tem um valor default em variables.tf.
 # Descomente e ajuste só o que quiser sobrescrever.

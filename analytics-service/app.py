@@ -135,6 +135,9 @@ def sqs_worker_loop():
 
 app = Flask(__name__)
 
+from tracing import setup_tracing  # noqa: E402  (precisa do "app" já criado)
+setup_tracing(app, service_name="analytics-service")
+
 
 @app.route('/health')
 def health():

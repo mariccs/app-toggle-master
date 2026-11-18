@@ -10,8 +10,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/go-redis/redis/extra/redisotel/v8"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 // Contexto global para o Redis
@@ -29,6 +31,16 @@ type App struct {
 
 func main() {
 	_ = godotenv.Load() // Carrega .env para dev local
+
+	// Inicializa o OpenTelemetry (traces) antes de qualquer outra coisa,
+	// para capturar o caminho completo da requisição: evaluation-service
+	// -> Redis (cache) -> flag-service / targeting-service.
+	shutdownTracer := initTracer()
+	defer func() {
+		if err := shutdownTracer(context.Background()); err != nil {
+			log.Printf("Erro ao finalizar o tracer provider: %v", err)
+		}
+	}()
 
 	// --- Configuração ---
 	port := os.Getenv("PORT")
@@ -62,13 +74,16 @@ func main() {
 	}
 
 	// --- Inicializa Clientes ---
-	
+
 	// Cliente Redis
 	opt, err := redis.ParseURL(redisURL)
 	if err != nil {
 		log.Fatalf("Não foi possível parsear a URL do Redis: %v", err)
 	}
 	rdb := redis.NewClient(opt)
+	// Instrumenta o cliente Redis: cada GET/SET de cache aparece como um
+	// span filho dentro do trace da requisição que o originou.
+	rdb.AddHook(redisotel.NewTracingHook())
 	if _, err := rdb.Ping(ctx).Result(); err != nil {
 		log.Fatalf("Não foi possível conectar ao Redis: %v", err)
 	}
@@ -85,9 +100,13 @@ func main() {
 		log.Println("Cliente SQS inicializado com sucesso.")
 	}
 
-	// Cliente HTTP (com timeout)
+	// Cliente HTTP (com timeout), com o transport instrumentado: toda
+	// requisição de saída feita com http.NewRequestWithContext propaga o
+	// trace atual via header (W3C traceparent) para flag-service e
+	// targeting-service, e aparece como span filho no trace.
 	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:   5 * time.Second,
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
 	}
 
 	// Cria a instância da App
@@ -105,8 +124,14 @@ func main() {
 	mux.HandleFunc("/health", app.healthHandler)
 	mux.HandleFunc("/evaluate", app.evaluationHandler)
 
+	// Envolve todo o mux com o middleware do OpenTelemetry: cada
+	// requisição recebida (inclusive /evaluate, o "hot path" citado no
+	// desafio da Fase 4) inicia (ou continua, se vier com traceparent) um
+	// trace, com o nome da rota como nome do span raiz.
+	instrumentedMux := otelhttp.NewHandler(mux, "evaluation-service")
+
 	log.Printf("Serviço de Avaliação (Go) rodando na porta %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, instrumentedMux); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -2,6 +2,11 @@ output "eks_cluster_name" {
   value = module.eks.cluster_name
 }
 
+output "self_healing_relay_url" {
+  description = "URL do Lambda de self-healing — vai na Secret alertmanager-chatops-secrets (chave SELF_HEAL_RELAY_URL)."
+  value       = module.self_healing_relay.relay_url
+}
+
 output "eks_update_kubeconfig_command" {
   value = "aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.aws_region}"
 }

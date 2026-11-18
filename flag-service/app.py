@@ -18,6 +18,9 @@ load_dotenv()
 
 app = Flask(__name__)
 
+from tracing import setup_tracing  # noqa: E402  (precisa do "app" já criado)
+setup_tracing(app, service_name="flag-service")
+
 # --- Configuração ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL")

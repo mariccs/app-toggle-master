@@ -1,0 +1,67 @@
+name: Self-Healing (Fase 4)
+
+# Disparado via repository_dispatch — ninguém roda este workflow na mão.
+# Quem chama é o relay (AWS Lambda, em observability/self-healing/lambda)
+# que recebe o webhook do Alertmanager quando o alerta
+# "AuthServiceHigh5xxRate" dispara, e então chama a API
+# repository_dispatch do GitHub com o token de acesso guardado no Lambda.
+on:
+  repository_dispatch:
+    types: [self-heal]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  rollout-restart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Define o serviço a reiniciar
+        id: target
+        run: |
+          # client_payload.service vem do corpo que o Lambda envia.
+          # Se não vier nada (ex.: disparo manual de teste), usa
+          # auth-service como padrão — é o serviço do alerta desta fase.
+          SERVICE="${{ github.event.client_payload.service }}"
+          if [ -z "$SERVICE" ]; then
+            SERVICE="auth-service"
+          fi
+          echo "service=$SERVICE" >> "$GITHUB_OUTPUT"
+          echo "Serviço alvo do self-healing: $SERVICE"
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Instala o kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.31.0"
+
+      - name: Configura o acesso ao cluster EKS
+        run: |
+          aws eks update-kubeconfig \
+            --name "${{ secrets.EKS_CLUSTER_NAME }}" \
+            --region "${{ secrets.AWS_REGION }}"
+
+      - name: Self-healing - kubectl rollout restart
+        run: |
+          SERVICE="${{ steps.target.outputs.service }}"
+          echo "Disparando self-healing: kubectl rollout restart deployment/$SERVICE"
+          kubectl rollout restart "deployment/$SERVICE" -n togglemaster
+
+      - name: Aguarda o rollout terminar
+        run: |
+          SERVICE="${{ steps.target.outputs.service }}"
+          kubectl rollout status "deployment/$SERVICE" -n togglemaster --timeout=180s
+
+      - name: Resumo
+        run: |
+          SERVICE="${{ steps.target.outputs.service }}"
+          echo "### Self-healing executado" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Serviço: \`$SERVICE\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Motivo: alerta AuthServiceHigh5xxRate (taxa de 5xx > 5%)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ação: \`kubectl rollout restart deployment/$SERVICE -n togglemaster\`" >> "$GITHUB_STEP_SUMMARY"
+          kubectl get pods -n togglemaster -l "app=$SERVICE" >> "$GITHUB_STEP_SUMMARY"
